@@ -8,6 +8,10 @@ use App\Http\Requests\UpdateCustomerRequest;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\V1\CustomerResource;
 use App\Http\Resources\V1\CustomerCollection;
+use App\Filters\V1\CustomerFilter;
+use Illuminate\Http\Request;
+use Illuminate\Database\Eloquent\Builder;
+
 
 class CustomerController extends Controller
 {
@@ -16,9 +20,20 @@ class CustomerController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
-    public function index()
+    public function index(Request $request)
     {
-        return new CustomerCollection(Customer::paginate());
+        $filter = new CustomerFilter();
+        $filterItems = $filter->transform($request);
+        $includeInvoice = $request->query('includeInvoice');
+
+        $customers = Customer::where($filterItems);
+
+        if ($includeInvoice) {
+            $customers = $customers->with('invoice');
+        }
+        
+        return new CustomerCollection($customers->paginate()->appends($request->query()));
+
     }
 
     /**
@@ -50,6 +65,12 @@ class CustomerController extends Controller
      */
     public function show(Customer $customer)
     {
+        $includeInvoice = request()->query('includeInvoice');
+
+        if ($includeInvoice) {
+            return new CustomerResource($customer->loadMissing('invoice'));
+        }
+
         return new CustomerResource($customer);
     }
 
